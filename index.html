@@ -1,0 +1,1821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cat-Daddy: On The Prowl For Scammers!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Outfit:wght@600;800;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+            font-family: 'Fredoka', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #f8fafc;
+        }
+        #game-shell {
+            position: relative;
+            width: 100%;
+            max-width: 680px;
+            height: 100%;
+            max-height: 920px;
+            display: flex;
+            flex-direction: column;
+            background: #1e293b;
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 0 3px #334155;
+            overflow: hidden;
+        }
+        @media (min-width: 680px) {
+            #game-shell {
+                height: 94vh;
+                border-radius: 24px;
+            }
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            flex: 1;
+        }
+        .arcade-btn {
+            font-family: 'Outfit', sans-serif;
+            transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.12s ease;
+        }
+        .arcade-btn:active {
+            transform: translateY(3px) scale(0.97);
+        }
+        .stitched-badge {
+            background: #1e3a8a;
+            border: 3px dashed #93c5fd;
+            box-shadow: 0 6px 0 #0f172a, inset 0 2px 4px rgba(255,255,255,0.2);
+        }
+        .aldi-header {
+            background: linear-gradient(180deg, #003399 0%, #002266 100%);
+            border-bottom: 4px solid #f59e0b;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 18px rgba(239, 68, 68, 0.6); }
+            50% { transform: scale(1.03); box-shadow: 0 0 28px rgba(239, 68, 68, 0.95); }
+        }
+        .bust-ready {
+            animation: pulse-glow 1.4s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-shell">
+    <!-- Top ALDI-inspired HUD Bar -->
+    <div class="aldi-header px-3 py-2 flex items-center justify-between z-20 shrink-0 shadow-lg">
+        <div class="flex items-center gap-2">
+            <!-- Mini Aisle 5 Sign -->
+            <div class="bg-[#00287a] border-2 border-[#f59e0b] rounded-lg px-2 py-0.5 text-center shadow">
+                <div class="text-[9px] font-black tracking-widest text-[#38bdf8] leading-none">AISLE</div>
+                <div class="text-base font-black text-white leading-tight">5</div>
+            </div>
+            <div>
+                <div class="text-xs uppercase tracking-wider text-amber-300 font-bold leading-none">Score</div>
+                <div id="hud-score" class="text-xl sm:text-2xl font-black text-white leading-tight font-['Outfit']">0</div>
+            </div>
+            <div id="hud-combo-badge" class="hidden bg-emerald-500 text-slate-950 font-black text-xs px-2 py-0.5 rounded-full shadow animate-bounce">
+                x2 COMBO
+            </div>
+        </div>
+
+        <!-- Lives & Controls -->
+        <div class="flex items-center gap-2 sm:gap-3">
+            <!-- Lives (Paws/Hearts) -->
+            <div id="hud-lives" class="flex items-center gap-1 bg-slate-900/60 px-2.5 py-1 rounded-full border border-slate-700" title="Lives remaining">
+                <span class="text-base">🐾</span>
+                <span class="text-base">🐾</span>
+                <span class="text-base">🐾</span>
+            </div>
+
+            <!-- Felt Stitch Toggle -->
+            <button id="btn-style-toggle" class="arcade-btn bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-2.5 py-1.5 rounded-xl border-b-4 border-indigo-900 shadow flex items-center gap-1" title="Toggle Felt Puppet Stitches">
+                <span>🧵</span>
+                <span id="style-label" class="hidden sm:inline">Felt Mode</span>
+            </button>
+
+            <!-- Mute Toggle -->
+            <button id="btn-mute" class="arcade-btn bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold p-1.5 px-2.5 rounded-xl border-b-4 border-slate-900 shadow" title="Toggle Sound">
+                🔊
+            </button>
+        </div>
+    </div>
+
+    <!-- Active Power-up Status Strip -->
+    <div id="powerup-bar" class="hidden bg-gradient-to-r from-sky-500 via-blue-600 to-sky-500 text-white text-xs font-black tracking-wider uppercase py-1 px-3 text-center z-20 shadow">
+        ⚡ 62-CALORIE PUSSLOAF RUSH ACTIVE! 2X POINTS! ⚡
+    </div>
+
+    <!-- Main Interactive Game Canvas -->
+    <div class="relative flex-1 w-full overflow-hidden">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- START SCREEN OVERLAY -->
+        <div id="screen-start" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-between p-4 sm:p-6 z-30 overflow-y-auto">
+            <div class="w-full max-w-md flex flex-col items-center text-center my-auto gap-3">
+                <!-- Stitched Emblem Header -->
+                <div class="stitched-badge rounded-2xl px-5 py-3 w-full transform -rotate-1">
+                    <div class="inline-block bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full mb-1">
+                        Aisle 5 Special Investigation
+                    </div>
+                    <h1 class="font-['Outfit'] text-3xl sm:text-4xl font-black text-white tracking-tight drop-shadow">
+                        CAT-DADDY
+                    </h1>
+                    <p class="font-['Outfit'] text-sm sm:text-base font-extrabold text-amber-400 tracking-wide uppercase">
+                        On The Prowl For Scammers!
+                    </p>
+                </div>
+
+                <!-- Character Preview Card -->
+                <div class="bg-slate-900/90 border-2 border-slate-700 rounded-2xl p-3.5 w-full shadow-xl">
+                    <div class="flex items-center justify-center gap-4 mb-2">
+                        <canvas id="previewCanvas" width="130" height="120" class="rounded-xl bg-slate-800/80 border border-slate-700 shrink-0"></canvas>
+                        <div class="text-left space-y-1.5">
+                            <div class="text-sm font-bold text-sky-300">🎙️ Host & Grocery Inspector</div>
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                Push your cart down <span class="text-amber-300 font-bold">Aisle 5</span>! Stock up on genuine <span class="text-sky-300 font-bold">PussLoaf</span> &amp; ALDI classics while blasting shady knock-offs with your <span class="text-rose-400 font-bold">Podcast Mic</span>!
+                            </p>
+                            <div class="text-xs font-bold text-slate-400">
+                                🏆 Best Score: <span id="start-high-score" class="text-amber-400">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Item Legend Grid -->
+                    <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800 text-left text-xs">
+                        <div class="bg-emerald-950/50 border border-emerald-700/50 rounded-xl p-2">
+                            <div class="font-black text-emerald-400 mb-1">✅ COLLECT IN CART</div>
+                            <ul class="space-y-0.5 text-slate-200 text-[11px]">
+                                <li>🍞 <b>PussLoaf</b> (62 Cal Rush!)</li>
+                                <li>🍪 <b>Garibaldi</b> (+1 Paw Life!)</li>
+                                <li>🥫 <b>Bramwells Beans</b> (+150)</li>
+                                <li>🧀 <b>Specially Selected</b> (+200)</li>
+                            </ul>
+                        </div>
+                        <div class="bg-rose-950/50 border border-rose-700/50 rounded-xl p-2">
+                            <div class="font-black text-rose-400 mb-1">🚨 BUST WITH MIC!</div>
+                            <ul class="space-y-0.5 text-slate-200 text-[11px]">
+                                <li>🍞 <b>FakeLoaf</b> (Counterfeit!)</li>
+                                <li>📧 <b>Phishing Email</b> (Trap!)</li>
+                                <li>🎟️ <b>Fake Coupon</b> (Scam!)</li>
+                                <li>🥫 <b>Suspicious Beans</b> (Dodgy!)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls Summary -->
+                <div class="flex flex-wrap items-center justify-center gap-2 text-[11px] text-slate-300">
+                    <span class="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">⬅️ ➡️ / A-D / Drag to Steer</span>
+                    <span class="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">SPACE / Red Button to Bust Scammers</span>
+                </div>
+
+                <!-- Play Button -->
+                <button id="btn-start" class="arcade-btn w-full py-3.5 px-6 rounded-2xl bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-['Outfit'] font-black text-xl tracking-wide uppercase border-b-4 border-amber-700 shadow-lg cursor-pointer">
+                    🛒 START PATROL IN AISLE 5!
+                </button>
+            </div>
+        </div>
+
+        <!-- GAME OVER OVERLAY -->
+        <div id="screen-gameover" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-5 z-30">
+            <div class="w-full max-w-md bg-slate-900 border-2 border-slate-700 rounded-3xl p-5 text-center shadow-2xl space-y-4">
+                <div class="stitched-badge rounded-2xl py-2.5 px-4">
+                    <div class="text-xs font-black uppercase tracking-widest text-rose-300">Broadcast Interrupted!</div>
+                    <h2 class="font-['Outfit'] text-3xl font-black text-white">SHIFT OVER!</h2>
+                </div>
+
+                <div class="bg-slate-800/80 rounded-2xl p-4 border border-slate-700 space-y-2">
+                    <div class="text-xs uppercase tracking-wider text-slate-400 font-bold">Final Patrol Score</div>
+                    <div id="over-score" class="font-['Outfit'] text-4xl font-black text-amber-400">0</div>
+                    <div id="over-new-best" class="hidden inline-block bg-amber-400 text-slate-950 text-xs font-black px-3 py-0.5 rounded-full">
+                        🎉 NEW HIGH SCORE!
+                    </div>
+                    <div class="text-xs text-slate-400">All-Time Best: <span id="over-high-score" class="text-white font-bold">0</span></div>
+                </div>
+
+                <!-- Run Stats Breakdown -->
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-slate-800/70 border border-slate-700 rounded-xl p-2.5">
+                        <div class="text-xl">🍞</div>
+                        <div id="stat-pussloaf" class="font-['Outfit'] text-xl font-black text-sky-400">0</div>
+                        <div class="text-[10px] uppercase font-bold text-slate-400">PussLoafs</div>
+                    </div>
+                    <div class="bg-slate-800/70 border border-slate-700 rounded-xl p-2.5">
+                        <div class="text-xl">🎙️</div>
+                        <div id="stat-busted" class="font-['Outfit'] text-xl font-black text-rose-400">0</div>
+                        <div class="text-[10px] uppercase font-bold text-slate-400">Scams Busted</div>
+                    </div>
+                    <div class="bg-slate-800/70 border border-slate-700 rounded-xl p-2.5">
+                        <div class="text-xl">🍪</div>
+                        <div id="stat-groceries" class="font-['Outfit'] text-xl font-black text-emerald-400">0</div>
+                        <div class="text-[10px] uppercase font-bold text-slate-400">Groceries</div>
+                    </div>
+                </div>
+
+                <p id="over-quote" class="text-xs italic text-slate-300 bg-slate-800/50 p-2.5 rounded-xl border border-slate-700/60">
+                    "Keep your whiskers sharp and your PussLoaf low-sugar!"
+                </p>
+
+                <button id="btn-restart" class="arcade-btn w-full py-3.5 px-6 rounded-2xl bg-gradient-to-b from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-slate-950 font-['Outfit'] font-black text-xl tracking-wide uppercase border-b-4 border-emerald-700 shadow-lg cursor-pointer">
+                    🔄 PATROL AGAIN!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Arcade Touch & Action Bar -->
+    <div class="bg-slate-900 border-t-2 border-slate-800 px-3 py-2.5 flex items-center justify-between gap-2 z-20 shrink-0">
+        <!-- Left Move Button -->
+        <button id="btn-left" class="arcade-btn flex-1 max-w-[110px] py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white font-black text-xl border-b-4 border-slate-950 shadow flex items-center justify-center" aria-label="Move Left">
+            ◀
+        </button>
+
+        <!-- Center Sonic Mic Bust Button -->
+        <button id="btn-bust" class="arcade-btn bust-ready flex-[2] py-3 px-4 rounded-2xl bg-gradient-to-b from-rose-500 to-red-600 hover:from-rose-400 hover:to-red-500 text-white font-['Outfit'] font-black text-base sm:text-lg tracking-wider uppercase border-b-4 border-red-900 shadow-lg flex items-center justify-center gap-2">
+            <span>🎙️</span>
+            <span>BUST SCAMMER!</span>
+        </button>
+
+        <!-- Right Move Button -->
+        <button id="btn-right" class="arcade-btn flex-1 max-w-[110px] py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white font-black text-xl border-b-4 border-slate-950 shadow flex items-center justify-center" aria-label="Move Right">
+            ▶
+        </button>
+    </div>
+</div>
+
+<script>
+/**
+ * ============================================================================
+ * CAT-DADDY: ON THE PROWL FOR SCAMMERS!
+ * Complete single-file HTML5 Canvas Arcade Game
+ * ============================================================================
+ */
+
+// --- 1. WEB AUDIO SYNTHESIZER (Retro Arcade SFX without external files) ---
+class SoundFX {
+    constructor() {
+        this.ctx = null;
+        this.muted = false;
+    }
+
+    init() {
+        if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) {
+                this.ctx = new AudioCtx();
+            }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    }
+
+    toggleMute() {
+        this.muted = !this.muted;
+        return this.muted;
+    }
+
+    playTone(freq, type, duration, vol = 0.15, slideFreq = null, delay = 0) {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime + delay;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        if (slideFreq) {
+            osc.frequency.exponentialRampToValueAtTime(slideFreq, now + duration);
+        }
+
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + duration);
+    }
+
+    playCartSwitch() {
+        this.playTone(220, 'triangle', 0.08, 0.08, 320);
+    }
+
+    playPussLoaf() {
+        // Uplifting purr-chime arpeggio
+        this.playTone(523.25, 'sine', 0.12, 0.18, null, 0);
+        this.playTone(659.25, 'sine', 0.12, 0.18, null, 0.06);
+        this.playTone(783.99, 'triangle', 0.22, 0.2, 1046.5, 0.12);
+    }
+
+    playGroceryPickup() {
+        this.playTone(440, 'triangle', 0.1, 0.14, 660);
+    }
+
+    playGaribaldiHeal() {
+        // Crunchy biscuit + warm chord
+        this.playNoise(0.09, 0.15);
+        this.playTone(440, 'sine', 0.18, 0.16, null, 0.05);
+        this.playTone(554.37, 'sine', 0.18, 0.16, null, 0.11);
+        this.playTone(659.25, 'sine', 0.25, 0.18, null, 0.17);
+    }
+
+    playMicBlast() {
+        // Sonic podcast mic-drop zap + airhorn punch
+        this.playTone(880, 'sawtooth', 0.22, 0.16, 140);
+        this.playTone(320, 'square', 0.18, 0.12, 640, 0.03);
+    }
+
+    playScamBusted() {
+        // Satisfying cash-register / exposer chime
+        this.playTone(587.33, 'square', 0.1, 0.14, null, 0);
+        this.playTone(880, 'square', 0.24, 0.16, 1174.66, 0.08);
+    }
+
+    playScamHit() {
+        // Buzzer alarm
+        this.playTone(160, 'sawtooth', 0.35, 0.22, 75);
+        this.playTone(145, 'square', 0.35, 0.18, 65, 0.04);
+    }
+
+    playNoise(duration, vol = 0.12) {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const bufferSize = this.ctx.sampleRate * duration;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 1800;
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        noise.start();
+    }
+}
+
+const sfx = new SoundFX();
+
+// --- 2. GAME CONFIGURATION & STATE ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const previewCanvas = document.getElementById('previewCanvas');
+const pCtx = previewCanvas.getContext('2d');
+
+const STORAGE_KEY = 'catdaddy_aisle5_highscore_v1';
+
+const state = {
+    mode: 'START', // 'START', 'PLAYING', 'GAMEOVER'
+    feltMode: true,
+    score: 0,
+    highScore: parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10),
+    lives: 3,
+    maxLives: 3,
+    combo: 1,
+    comboTimer: 0,
+    rushTimer: 0, // 62-Calorie PussLoaf Rush
+    pussLoafCount: 0,
+    bustedCount: 0,
+    groceriesCount: 0,
+    floorScroll: 0,
+    baseSpeed: 290, // pixels per second
+    difficultyMult: 1,
+    spawnTimer: 0,
+    screenShake: 0,
+    cat: {
+        lane: 1, // 0 = left, 1 = center, 2 = right
+        x: 0,
+        targetX: 0,
+        y: 0,
+        bobPhase: 0,
+        eatTimer: 0,
+        blastCooldown: 0
+    },
+    items: [],
+    waves: [],      // Sonic mic soundwaves
+    particles: [],  // Crumbs, sparkles, confetti
+    popups: []      // Floating text ("+250", "SCAM BUSTED!", etc.)
+};
+
+// Item catalog inspired by uploaded images
+const ITEM_TYPES = [
+    // GENUINE ITEMS (Collect!)
+    {
+        id: 'pussloaf',
+        name: 'PussLoaf 62-Cal',
+        category: 'good',
+        points: 250,
+        weight: 26,
+        isRush: true
+    },
+    {
+        id: 'garibaldi',
+        name: 'ALDI Garibaldi',
+        category: 'good',
+        points: 200,
+        weight: 14,
+        heals: true
+    },
+    {
+        id: 'beans',
+        name: 'Bramwells Beans',
+        category: 'good',
+        points: 150,
+        weight: 22
+    },
+    {
+        id: 'cheese',
+        name: 'Specially Selected',
+        category: 'good',
+        points: 200,
+        weight: 18
+    },
+    // SCAMMER ITEMS (Bust with Mic!)
+    {
+        id: 'fakeloaf',
+        name: 'FakeLoaf Scam!',
+        category: 'scam',
+        points: 300,
+        weight: 20
+    },
+    {
+        id: 'phishing',
+        name: 'Phishing Email!',
+        category: 'scam',
+        points: 300,
+        weight: 18
+    },
+    {
+        id: 'fakecoupon',
+        name: 'Fake Coupon!',
+        category: 'scam',
+        points: 300,
+        weight: 16
+    },
+    {
+        id: 'scambeans',
+        name: 'Suspicious Beans!',
+        category: 'scam',
+        points: 350,
+        weight: 14
+    }
+];
+
+const QUOTES = [
+    "\"Nobody slips a FakeLoaf past Cat-Daddy in Aisle 5!\"",
+    "\"62 calories of pure tuxedo-cat investigative power!\"",
+    "\"Always check the stitching and never click phishing links!\"",
+    "\"Garibaldi biscuits keep the whiskers sharp and the podcast rolling!\""
+];
+
+// --- 3. RESPONSIVE RESIZING ---
+let width = 0;
+let height = 0;
+let shelfWidth = 54;
+let laneCenters = [0, 0, 0];
+
+function resizeCanvas() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    width = rect.width;
+    height = rect.height;
+
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    shelfWidth = Math.max(40, Math.min(72, width * 0.12));
+    const aisleLeft = shelfWidth;
+    const aisleRight = width - shelfWidth;
+    const aisleW = aisleRight - aisleLeft;
+
+    laneCenters = [
+        aisleLeft + aisleW * (1 / 6),
+        aisleLeft + aisleW * (3 / 6),
+        aisleLeft + aisleW * (5 / 6)
+    ];
+
+    state.cat.y = height - Math.max(105, height * 0.16);
+    state.cat.targetX = laneCenters[state.cat.lane];
+    if (state.cat.x === 0) {
+        state.cat.x = state.cat.targetX;
+    }
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+// --- 4. CUSTOM VECTOR ART RENDERING (Felt-Stitched Cat-Daddy, Cart, Shelves & Products) ---
+
+function drawStitchLine(c, x1, y1, x2, y2, color = '#e2e8f0') {
+    if (!state.feltMode) return;
+    c.save();
+    c.strokeStyle = color;
+    c.lineWidth = 1.6;
+    c.setLineDash([4, 4]);
+    c.beginPath();
+    c.moveTo(x1, y1);
+    c.lineTo(x2, y2);
+    c.stroke();
+    c.restore();
+}
+
+/**
+ * Draws Cat-Daddy (felt-stitched tuxedo cat with headphones, shades, podcast mic & shopping cart)
+ */
+function drawCatDaddy(c, x, y, scale = 1, bob = 0, isEating = false, blastPulse = 0) {
+    c.save();
+    c.translate(x, y + bob);
+    c.scale(scale, scale);
+
+    // Soft drop shadow on supermarket floor
+    c.fillStyle = 'rgba(15, 23, 42, 0.35)';
+    c.beginPath();
+    c.ellipse(0, 58, 48, 14, 0, 0, Math.PI * 2);
+    c.fill();
+
+    // --- TAIL (Swishing tuxedo tail with white tip) ---
+    const tailWag = Math.sin(performance.now() * 0.008) * 8;
+    c.strokeStyle = '#111827';
+    c.lineWidth = 11;
+    c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(-22, 22);
+    c.quadraticCurveTo(-52, 18 + tailWag, -48, -6 + tailWag);
+    c.stroke();
+    // White tail tip
+    c.fillStyle = '#f8fafc';
+    c.beginPath();
+    c.arc(-48, -6 + tailWag, 6.5, 0, Math.PI * 2);
+    c.fill();
+
+    // --- BODY (Tuxedo Black with White Felt Chest Patch) ---
+    c.fillStyle = '#111827';
+    c.beginPath();
+    c.roundRect(-28, -22, 56, 56, 22);
+    c.fill();
+
+    // White chest bib
+    c.fillStyle = '#f8fafc';
+    c.beginPath();
+    c.moveTo(-14, -18);
+    c.lineTo(14, -18);
+    c.quadraticCurveTo(18, 8, 0, 22);
+    c.quadraticCurveTo(-18, 8, -14, -18);
+    c.fill();
+
+    if (state.feltMode) {
+        c.strokeStyle = '#94a3b8';
+        c.lineWidth = 1.4;
+        c.setLineDash([3, 3]);
+        c.stroke();
+        c.setLineDash([]);
+    }
+
+    // --- HEAD ---
+    c.fillStyle = '#111827';
+    c.beginPath();
+    c.ellipse(0, -42, 30, 25, 0, 0, Math.PI * 2);
+    c.fill();
+
+    // Center forehead stitch (Muppet detail from image 3 & 4)
+    if (state.feltMode) {
+        drawStitchLine(c, 0, -65, 0, -48, '#64748b');
+    }
+
+    // Ears
+    // Left Ear
+    c.fillStyle = '#111827';
+    c.beginPath();
+    c.moveTo(-26, -54);
+    c.lineTo(-22, -78);
+    c.lineTo(-6, -63);
+    c.closePath();
+    c.fill();
+    c.fillStyle = '#f1f5f9';
+    c.beginPath();
+    c.moveTo(-22, -57);
+    c.lineTo(-20, -71);
+    c.lineTo(-10, -62);
+    c.closePath();
+    c.fill();
+
+    // Right Ear
+    c.fillStyle = '#111827';
+    c.beginPath();
+    c.moveTo(26, -54);
+    c.lineTo(22, -78);
+    c.lineTo(6, -63);
+    c.closePath();
+    c.fill();
+    c.fillStyle = '#f1f5f9';
+    c.beginPath();
+    c.moveTo(22, -57);
+    c.lineTo(20, -71);
+    c.lineTo(10, -62);
+    c.closePath();
+    c.fill();
+
+    // White Muzzle Cheeks
+    c.fillStyle = '#f8fafc';
+    c.beginPath();
+    c.ellipse(-8, -32, 11, 8, 0, 0, Math.PI * 2);
+    c.ellipse(8, -32, 11, 8, 0, 0, Math.PI * 2);
+    c.fill();
+
+    // Pink/Dark Cute Nose & Mouth
+    c.fillStyle = '#fb7185';
+    c.beginPath();
+    c.moveTo(-4, -37);
+    c.lineTo(4, -37);
+    c.lineTo(0, -32);
+    c.closePath();
+    c.fill();
+
+    // Open mouth if eating Garibaldi biscuit
+    if (isEating) {
+        c.fillStyle = '#be123c';
+        c.beginPath();
+        c.arc(0, -27, 5, 0, Math.PI);
+        c.fill();
+    }
+
+    // Googly Eyes peeking above shades (from Muppet reference!)
+    c.fillStyle = '#ffffff';
+    c.beginPath();
+    c.arc(-10, -50, 6.5, 0, Math.PI * 2);
+    c.arc(10, -50, 6.5, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = '#0f172a';
+    c.beginPath();
+    c.arc(-9, -50, 3.2, 0, Math.PI * 2);
+    c.arc(9, -50, 3.2, 0, Math.PI * 2);
+    c.fill();
+
+    // Cool Black Sunglasses
+    c.fillStyle = '#090d16';
+    c.strokeStyle = '#334155';
+    c.lineWidth = 1.8;
+    c.beginPath();
+    c.roundRect(-24, -48, 21, 13, 4);
+    c.roundRect(3, -48, 21, 13, 4);
+    c.fill();
+    c.stroke();
+    // Bridge
+    c.beginPath();
+    c.moveTo(-3, -44);
+    c.lineTo(3, -44);
+    c.stroke();
+    // Lens shine
+    c.strokeStyle = 'rgba(255,255,255,0.35)';
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.moveTo(-19, -45);
+    c.lineTo(-14, -38);
+    c.moveTo(8, -45);
+    c.lineTo(13, -38);
+    c.stroke();
+
+    // Over-Ear Studio Headphones
+    c.strokeStyle = '#334155';
+    c.lineWidth = 5;
+    c.beginPath();
+    c.arc(0, -47, 32, Math.PI * 1.05, Math.PI * 1.95);
+    c.stroke();
+
+    // Earcups
+    c.fillStyle = '#1e293b';
+    c.strokeStyle = '#d97706';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.roundRect(-36, -54, 9, 20, 4);
+    c.roundRect(27, -54, 9, 20, 4);
+    c.fill();
+    c.stroke();
+
+    // --- SHOPPING CART (Front View Pushing Down Aisle) ---
+    // Cart Handlebar (ALDI Blue & Orange ends)
+    c.fillStyle = '#1d4ed8';
+    c.fillRect(-34, -4, 68, 6);
+    c.fillStyle = '#f97316';
+    c.fillRect(-38, -5, 8, 8);
+    c.fillRect(30, -5, 8, 8);
+
+    // White Felt Paws gripping handle
+    c.fillStyle = '#f8fafc';
+    c.beginPath();
+    c.arc(-22, -1, 7.5, 0, Math.PI * 2);
+    c.arc(22, -1, 7.5, 0, Math.PI * 2);
+    c.fill();
+    if (state.feltMode) {
+        c.strokeStyle = '#64748b';
+        c.lineWidth = 1.2;
+        c.stroke();
+    }
+
+    // Metal Wire Cart Basket
+    c.fillStyle = 'rgba(203, 213, 225, 0.35)';
+    c.strokeStyle = '#cbd5e1';
+    c.lineWidth = 2.5;
+    c.beginPath();
+    c.moveTo(-36, 2);
+    c.lineTo(36, 2);
+    c.lineTo(30, 44);
+    c.lineTo(-30, 44);
+    c.closePath();
+    c.fill();
+    c.stroke();
+
+    // Wire grid lines
+    c.strokeStyle = 'rgba(241, 245, 249, 0.55)';
+    c.lineWidth = 1.2;
+    for (let gx = -22; gx <= 22; gx += 11) {
+        c.beginPath();
+        c.moveTo(gx, 2);
+        c.lineTo(gx * 0.85, 44);
+        c.stroke();
+    }
+    c.beginPath();
+    c.moveTo(-33, 16);
+    c.lineTo(33, 16);
+    c.moveTo(-31, 30);
+    c.lineTo(31, 30);
+    c.stroke();
+
+    // Groceries peeking inside cart when collected
+    if (state.pussLoafCount > 0) {
+        c.fillStyle = '#d97706';
+        c.beginPath();
+        c.roundRect(-24, 10, 18, 22, 4);
+        c.fill();
+        c.fillStyle = '#0284c7';
+        c.fillRect(-24, 24, 18, 8);
+    }
+    if (state.groceriesCount > 0) {
+        c.fillStyle = '#dc2626';
+        c.fillRect(6, 12, 16, 20);
+    }
+
+    // Blue Stitched Banner on Cart Front ("CAT DADDY")
+    c.save();
+    c.translate(0, 29);
+    c.rotate(-0.04);
+    c.fillStyle = '#1e3a8a';
+    c.strokeStyle = '#93c5fd';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.roundRect(-34, -10, 68, 21, 5);
+    c.fill();
+    c.stroke();
+
+    c.fillStyle = '#ffffff';
+    c.font = '900 9.5px Outfit, sans-serif';
+    c.textAlign = 'center';
+    c.fillText('CAT-DADDY', 0, 0);
+    c.fillStyle = '#fbbf24';
+    c.font = '800 5.5px Outfit, sans-serif';
+    c.fillText('SCAM PATROL', 0, 7.5);
+    c.restore();
+
+    // Mounted Retro Podcast Microphone on Right Rim of Cart!
+    c.save();
+    c.translate(33, -6);
+    if (blastPulse > 0) {
+        c.scale(1 + blastPulse * 0.35, 1 + blastPulse * 0.35);
+    }
+    // Stand stem
+    c.fillStyle = '#64748b';
+    c.fillRect(-2, -8, 4, 14);
+    // Mic capsule
+    c.fillStyle = blastPulse > 0 ? '#f43f5e' : '#94a3b8';
+    c.strokeStyle = '#1e293b';
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.roundRect(-6, -22, 12, 16, 6);
+    c.fill();
+    c.stroke();
+    // Mic grille lines
+    c.strokeStyle = '#334155';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(-5, -17);
+    c.lineTo(5, -17);
+    c.moveTo(-5, -13);
+    c.lineTo(5, -13);
+    c.stroke();
+    c.restore();
+
+    // Cart Wheels
+    c.fillStyle = '#0f172a';
+    c.beginPath();
+    c.roundRect(-26, 45, 7, 10, 3);
+    c.roundRect(19, 45, 7, 10, 3);
+    c.fill();
+
+    c.restore();
+}
+
+/**
+ * Draws the detailed items falling down Aisle 5
+ */
+function drawItem(c, item) {
+    c.save();
+    c.translate(item.x, item.y);
+    const wobble = Math.sin(item.age * 5) * 0.06;
+    c.rotate(wobble);
+
+    // Ground shadow
+    c.fillStyle = 'rgba(15, 23, 42, 0.25)';
+    c.beginPath();
+    c.ellipse(0, 26, 24, 7, 0, 0, Math.PI * 2);
+    c.fill();
+
+    if (item.category === 'good') {
+        // Subtle emerald/gold aura
+        c.fillStyle = item.id === 'pussloaf' ? 'rgba(56, 189, 248, 0.22)' : 'rgba(52, 211, 153, 0.18)';
+        c.beginPath();
+        c.arc(0, 0, 32, 0, Math.PI * 2);
+        c.fill();
+    } else {
+        // Pulsing red scammer danger ring
+        const pulse = 1 + Math.sin(item.age * 10) * 0.08;
+        c.strokeStyle = 'rgba(244, 63, 94, 0.75)';
+        c.lineWidth = 2.5;
+        c.beginPath();
+        c.arc(0, 0, 30 * pulse, 0, Math.PI * 2);
+        c.stroke();
+    }
+
+    switch (item.id) {
+        case 'pussloaf': {
+            // Iconic PussLoaf Blue & White 62-Calorie Bread Bag
+            c.fillStyle = '#d97706';
+            c.strokeStyle = '#92400e';
+            c.lineWidth = 2;
+            c.beginPath();
+            c.roundRect(-24, -22, 48, 44, 10);
+            c.fill();
+            c.stroke();
+
+            // Bread slice lines
+            c.strokeStyle = 'rgba(120, 53, 15, 0.45)';
+            c.lineWidth = 1.2;
+            for (let sx = -16; sx <= 16; sx += 8) {
+                c.beginPath();
+                c.moveTo(sx, -20);
+                c.lineTo(sx, 10);
+                c.stroke();
+            }
+
+            // Blue bottom wrapper ("CAT DADDY")
+            c.fillStyle = '#0284c7';
+            c.beginPath();
+            c.roundRect(-24, 8, 48, 14, [0, 0, 10, 10]);
+            c.fill();
+            c.fillStyle = '#ffffff';
+            c.font = '900 7px Outfit, sans-serif';
+            c.textAlign = 'center';
+            c.fillText('CAT DADDY', 0, 18);
+
+            // White cloud badge ("PussLoaf")
+            c.fillStyle = '#ffffff';
+            c.beginPath();
+            c.roundRect(-20, -17, 40, 13, 6);
+            c.fill();
+            c.fillStyle = '#0f172a';
+            c.font = '900 8px Outfit, sans-serif';
+            c.fillText('PussLoaf', 0, -8);
+
+            // Green "62 CAL" tag
+            c.fillStyle = '#65a30d';
+            c.fillRect(10, -6, 14, 11);
+            c.fillStyle = '#ffffff';
+            c.font = '900 6.5px Outfit, sans-serif';
+            c.fillText('62', 17, 2);
+
+            // Bread bag twist tie on right
+            c.fillStyle = '#e2e8f0';
+            c.beginPath();
+            c.moveTo(24, -4);
+            c.lineTo(32, -9);
+            c.lineTo(32, 3);
+            c.closePath();
+            c.fill();
+            c.fillStyle = '#ef4444';
+            c.fillRect(23, -5, 3, 4);
+            break;
+        }
+
+        case 'garibaldi': {
+            // Red ALDI Garibaldi Biscuit Box
+            c.fillStyle = '#dc2626';
+            c.strokeStyle = '#7f1d1d';
+            c.lineWidth = 2;
+            c.beginPath();
+            c.roundRect(-21, -24, 42, 48, 6);
+            c.fill();
+            c.stroke();
+
+            // ALDI blue emblem
+            c.fillStyle = '#1d4ed8';
+            c.strokeStyle = '#fbbf24';
+            c.lineWidth = 1.5;
+            c.fillRect(-11, -19, 22, 14);
+            c.strokeRect(-11, -19, 22, 14);
+
+            c.fillStyle = '#ffffff';
+            c.font = '900 7px Outfit, sans-serif';
+            c.textAlign = 'center';
+            c.fillText('ALDI', 0, -9);
+
+            c.fillStyle = '#fef08a';
+            c.font = '800 7.5px Fredoka, sans-serif';
+            c.fillText('Garibaldi', 0, 4);
+
+            // Golden biscuit icon
+            c.fillStyle = '#f59e0b';
+            c.beginPath();
+            c.arc(0, 15, 7, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = '#4c1d95';
+            c.beginPath();
+            c.arc(0, 15, 2.5, 0, Math.PI * 2);
+            c.fill();
+            break;
+        }
+
+        case 'beans': {
+            // Green Bramwells Beans Tin
+            c.fillStyle = '#15803d';
+            c.strokeStyle = '#052e16';
+            c.lineWidth = 2;
+            c.beginPath();
+            c.roundRect(-18, -22, 36, 44, 5);
+            c.fill();
+            c.stroke();
+
+            // Tin lid rim
+            c.fillStyle = '#cbd5e1';
+            c.fillRect(-18, -22, 36, 4);
+
+            c.fillStyle = '#fef08a';
+            c.font = '900 6.5px Outfit, sans-serif';
+            c.textAlign = 'center';
+            c.fillText('BRAMWELLS', 0, -6);
+            c.fillStyle = '#ffffff';
+            c.font = '900 8px Outfit, sans-serif';
+            c.fillText('BEANS', 0, 4);
+
+            // Beans bowl graphic
+            c.fillStyle = '#ea580c';
+            c.beginPath();
+            c.arc(0, 14, 6, 0, Math.PI);
+            c.fill();
+            break;
+        }
+
+        case 'cheese': {
+            // Black & Gold Specially Selected Cheese Pack
+            c.fillStyle = '#18181b';
+            c.strokeStyle = '#f59e0b';
+            c.lineWidth = 2;
+            c.beginPath();
+            c.roundRect(-21, -20, 42, 40, 7);
+            c.fill();
+            c.stroke();
+
+            // Golden cheddar wedge
+            c.fillStyle = '#facc15';
+            c.beginPath();
+            c.moveTo(-12, 12);
+            c.lineTo(12, 12);
+            c.lineTo(8, -2);
+            c.closePath();
+            c.fill();
+
+            c.fillStyle = '#fde68a';
+            c.font = '800 6px Outfit, sans-serif';
+            c.textAlign = 'center';
+            c.fillText('SPECIALLY', 0, -9);
+            c.fillText('SELECTED', 0, -2);
+            break;
+        }
+
+        case 'fakeloaf': {
+            // Muddy green/grey counterfeit bread ("FAKeLOAF")
+            c.fillStyle = '#65745b';
+            c.strokeStyle = '#ef4444';
+            c.lineWidth = 2.5;
+            c.beginPath();
+            c.roundRect(-24, -22, 48, 44, 10);
+            c.fill();
+            c.stroke();
+
+            c.fillStyle = '#ef4444';
+            c.fillRect(-24, 7, 48, 15);
+            c.fillStyle = '#ffffff';
+            c.font = '900 7.5px Outfit, sans-serif';
+            c.textAlign = 'center';
+            c.fillText('FAKE LOAF', 0, 17);
+
+            c.fillStyle = '#fef08a';
+            c.font = '900 8px Outfit, sans-serif';
+            c.fillText('999 CAL!', 0, -5);
+            break;
+        }
+
+        case 'phishing': {
+            // Shady Phishing Envelope with Hook
+            c.fillStyle = '#be123c';
+            c.strokeStyle = '#fda4af';
+            c.lineWidth = 2;
+            c.beginPath();
+            c.roundRect(-23, -17, 46, 34, 6);
+            c.fill();
+            c.stroke();
+
+            // Envelope flap
+            c.strokeStyle = '#ffffff';
+            c.lineWidth = 2;
+            c.beginPath();
+            c.moveTo(-21, -15);
+            c.lineTo(0, 2);
+            c.lineTo(21, -15);
+            c.stroke();
+
+            c.fillStyle = '#fef08a';
+            c.font = '900 7.5px Outfit, sans-serif';
+            c.textAlign = 'center';
+            c.fillText('PHISHING!', 0, 13);
+            break;
+        }
+
+        case 'fakecoupon': {
+            // Sketchy "FREE 1000% OFF" Coupon
+            c.fillStyle = '#7e22ce';
+            c.strokeStyle = '#f43f5e';
+            c.lineWidth = 2.5;
+            c.setLineDash([4, 3]);
+            c.beginPath();
+            c.roundRect(-24, -17, 48, 34, 6);
+            c.fill();
+            c.stroke();
+            c.setLineDash([]);
+
+            c.fillStyle = '#fde047';
+            c.font = '900 8px Outfit, sans-serif';
+            c.textAlign = 'center';
+            c.fillText('FAKE', 0, -3);
+            c.fillStyle = '#ffffff';
+            c.fillText('COUPON!', 0, 8);
+            break;
+        }
+
+        case 'scambeans': {
+            // Purple/Skull Suspicious Beans Can
+            c.fillStyle = '#4c1d95';
+            c.strokeStyle = '#f43f5e';
+            c.lineWidth = 2.5;
+            c.beginPath();
+            c.roundRect(-18, -22, 36, 44, 5);
+            c.fill();
+            c.stroke();
+
+            c.fillStyle = '#fda4af';
+            c.font = '900 7px Outfit, sans-serif';
+            c.textAlign = 'center';
+            c.fillText('DODGY', 0, -5);
+            c.fillStyle = '#ffffff';
+            c.font = '900 8px Outfit, sans-serif';
+            c.fillText('SCAM!', 0, 7);
+            break;
+        }
+    }
+
+    // Floating badge above item
+    if (item.category === 'scam') {
+        c.fillStyle = '#ef4444';
+        c.beginPath();
+        c.roundRect(-22, -36, 44, 13, 6);
+        c.fill();
+        c.fillStyle = '#ffffff';
+        c.font = '900 8px Outfit, sans-serif';
+        c.textAlign = 'center';
+        c.fillText('🚨 SCAM', 0, -27);
+    } else if (item.id === 'pussloaf') {
+        c.fillStyle = '#0284c7';
+        c.beginPath();
+        c.roundRect(-26, -36, 52, 13, 6);
+        c.fill();
+        c.fillStyle = '#ffffff';
+        c.font = '900 7.5px Outfit, sans-serif';
+        c.textAlign = 'center';
+        c.fillText('⭐ PUSSLOAF', 0, -27);
+    }
+
+    c.restore();
+}
+
+/**
+ * Draws the ALDI-inspired Aisle 5 Supermarket Floor & Stocked Shelves
+ */
+function drawAisleBackground(c) {
+    // 1. Polished Supermarket Tile Floor
+    c.fillStyle = '#e2e8f0';
+    c.fillRect(0, 0, width, height);
+
+    const tileSize = 56;
+    const offsetY = state.floorScroll % tileSize;
+
+    c.strokeStyle = '#cbd5e1';
+    c.lineWidth = 1.5;
+
+    // Horizontal scrolling tile lines
+    for (let y = offsetY - tileSize; y < height + tileSize; y += tileSize) {
+        c.beginPath();
+        c.moveTo(shelfWidth, y);
+        c.lineTo(width - shelfWidth, y);
+        c.stroke();
+    }
+
+    // Subtle lane divider lines
+    c.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+    c.setLineDash([12, 12]);
+    const aisleW = width - shelfWidth * 2;
+    for (let i = 1; i <= 2; i++) {
+        const lx = shelfWidth + (aisleW * i) / 3;
+        c.beginPath();
+        c.moveTo(lx, 0);
+        c.lineTo(lx, height);
+        c.stroke();
+    }
+    c.setLineDash([]);
+
+    // 2. Left & Right Stocked Grocery Shelves (ALDI Blue, Yellow & Orange Cardboard Trays)
+    const bayHeight = 96;
+    const bayOffset = state.floorScroll % bayHeight;
+
+    for (let side = 0; side < 2; side++) {
+        const sx = side === 0 ? 0 : width - shelfWidth;
+        // Dark metal shelf frame
+        c.fillStyle = '#1e293b';
+        c.fillRect(sx, 0, shelfWidth, height);
+
+        for (let y = bayOffset - bayHeight; y < height + bayHeight; y += bayHeight) {
+            // Yellow/Blue ALDI display boxes
+            const isBlueBox = Math.floor((y - bayOffset) / bayHeight) % 2 === 0;
+            c.fillStyle = isBlueBox ? '#1d4ed8' : '#eab308';
+            c.fillRect(sx + 6, y + 8, shelfWidth - 12, bayHeight - 18);
+
+            // Inner products on shelf
+            c.fillStyle = isBlueBox ? '#93c5fd' : '#fef08a';
+            c.fillRect(sx + 10, y + 14, shelfWidth - 20, 22);
+
+            // Price tag strip on shelf edge
+            const edgeX = side === 0 ? sx + shelfWidth - 7 : sx;
+            c.fillStyle = '#f97316';
+            c.fillRect(edgeX, y + 4, 7, bayHeight - 8);
+            c.fillStyle = '#ffffff';
+            c.fillRect(edgeX + 1, y + 18, 5, 16);
+        }
+    }
+
+    // 3. Hanging Aisle 5 Sign near Top of Aisle
+    c.save();
+    const signX = width * 0.72;
+    const signY = 54;
+    // Hanging wires
+    c.strokeStyle = '#64748b';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(signX - 24, 0);
+    c.lineTo(signX - 24, signY - 26);
+    c.moveTo(signX + 24, 0);
+    c.lineTo(signX + 24, signY - 26);
+    c.stroke();
+
+    // Sign board
+    c.fillStyle = '#00287a';
+    c.strokeStyle = '#f59e0b';
+    c.lineWidth = 3;
+    c.beginPath();
+    c.roundRect(signX - 34, signY - 28, 68, 54, 8);
+    c.fill();
+    c.stroke();
+
+    c.fillStyle = '#38bdf8';
+    c.font = '900 10px Outfit, sans-serif';
+    c.textAlign = 'center';
+    c.fillText('AISLE', signX, signY - 12);
+
+    c.fillStyle = '#ffffff';
+    c.font = '900 24px Outfit, sans-serif';
+    c.fillText('5', signX, signY + 14);
+    c.restore();
+}
+
+// Render static Cat-Daddy character preview on Start Screen
+function renderPreviewCharacter() {
+    pCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    drawCatDaddy(pCtx, previewCanvas.width / 2, previewCanvas.height * 0.64, 0.88, 0, false, 0);
+}
+
+// --- 5. GAMEPLAY MECHANICS ---
+
+function addPopup(x, y, text, color = '#ffffff') {
+    state.popups.push({
+        x,
+        y,
+        text,
+        color,
+        life: 1.0
+    });
+}
+
+function spawnParticles(x, y, colors, count = 14) {
+    for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+        const speed = 70 + Math.random() * 160;
+        state.particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 40,
+            size: 3 + Math.random() * 4.5,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            life: 0.6 + Math.random() * 0.35
+        });
+    }
+}
+
+function triggerMicBlast() {
+    if (state.mode !== 'PLAYING') return;
+    if (state.cat.blastCooldown > 0) return;
+
+    state.cat.blastCooldown = 0.25;
+    sfx.playMicBlast();
+
+    // Launch expanding sonic podcast wave from Cat-Daddy's cart mic
+    state.waves.push({
+        x: state.cat.x,
+        y: state.cat.y - 24,
+        radius: 24,
+        maxRadius: Math.min(240, width * 0.44),
+        alpha: 1
+    });
+
+    // Check immediate bustable scammers in range ahead of cart
+    let bustedAny = false;
+    const blastRangeY = 235;
+    const blastRangeX = 95;
+
+    for (let i = state.items.length - 1; i >= 0; i--) {
+        const it = state.items[i];
+        if (it.category === 'scam') {
+            const dy = state.cat.y - it.y;
+            const dx = Math.abs(state.cat.x - it.x);
+            if (dy >= -30 && dy <= blastRangeY && dx <= blastRangeX) {
+                bustScammerItem(i);
+                bustedAny = true;
+            }
+        }
+    }
+
+    if (!bustedAny) {
+        addPopup(state.cat.x, state.cat.y - 68, '🎙️ ON AIR!', '#38bdf8');
+    }
+}
+
+function bustScammerItem(index) {
+    const it = state.items[index];
+    state.items.splice(index, 1);
+
+    const rushMult = state.rushTimer > 0 ? 2 : 1;
+    const pts = it.points * state.combo * rushMult;
+    state.score += pts;
+    state.bustedCount++;
+    state.combo = Math.min(8, state.combo + 1);
+    state.comboTimer = 4.2;
+    state.screenShake = 0.22;
+
+    sfx.playScamBusted();
+    spawnParticles(it.x, it.y, ['#f43f5e', '#fbbf24', '#38bdf8', '#ffffff'], 18);
+    addPopup(it.x, it.y - 10, `🚨 SCAM BUSTED! +${pts}`, '#fbbf24');
+    updateHUD();
+}
+
+function spawnWaveOfItems() {
+    // Weighted random selection
+    const totalWeight = ITEM_TYPES.reduce((sum, item) => sum + item.weight, 0);
+    const pickType = () => {
+        let r = Math.random() * totalWeight;
+        for (const t of ITEM_TYPES) {
+            if (r < t.weight) return t;
+            r -= t.weight;
+        }
+        return ITEM_TYPES[0];
+    };
+
+    const lane = Math.floor(Math.random() * 3);
+    const chosen = pickType();
+
+    state.items.push({
+        ...chosen,
+        lane,
+        x: laneCenters[lane],
+        y: -45,
+        age: Math.random() * 4
+    });
+
+    // Occasionally spawn a second item in a different lane as difficulty ramps up
+    if (state.difficultyMult > 1.25 && Math.random() < 0.35) {
+        const otherLane = (lane + (Math.random() < 0.5 ? 1 : 2)) % 3;
+        const second = pickType();
+        // Avoid impossible walls of scammers
+        if (!(chosen.category === 'scam' && second.category === 'scam')) {
+            state.items.push({
+                ...second,
+                lane: otherLane,
+                x: laneCenters[otherLane],
+                y: -85,
+                age: Math.random() * 4
+            });
+        }
+    }
+}
+
+function moveLane(dir) {
+    if (state.mode !== 'PLAYING') return;
+    const next = Math.max(0, Math.min(2, state.cat.lane + dir));
+    if (next !== state.cat.lane) {
+        state.cat.lane = next;
+        state.cat.targetX = laneCenters[next];
+        sfx.playCartSwitch();
+    }
+}
+
+function setLaneDirect(laneIdx) {
+    if (state.mode !== 'PLAYING') return;
+    const clamped = Math.max(0, Math.min(2, laneIdx));
+    if (clamped !== state.cat.lane) {
+        state.cat.lane = clamped;
+        state.cat.targetX = laneCenters[clamped];
+        sfx.playCartSwitch();
+    }
+}
+
+// --- 6. HUD & SCREEN MANAGEMENT ---
+const hudScore = document.getElementById('hud-score');
+const hudLives = document.getElementById('hud-lives');
+const hudCombo = document.getElementById('hud-combo-badge');
+const powerupBar = document.getElementById('powerup-bar');
+
+function updateHUD() {
+    hudScore.textContent = state.score.toLocaleString();
+
+    // Update paw lives
+    let paws = '';
+    for (let i = 0; i < state.maxLives; i++) {
+        paws += i < state.lives ? '<span class="text-base">🐾</span>' : '<span class="text-base opacity-25 grayscale">🐾</span>';
+    }
+    hudLives.innerHTML = paws;
+
+    // Combo badge
+    if (state.combo > 1) {
+        hudCombo.textContent = `x${state.combo} COMBO`;
+        hudCombo.classList.remove('hidden');
+    } else {
+        hudCombo.classList.add('hidden');
+    }
+
+    // Rush banner
+    if (state.rushTimer > 0) {
+        powerupBar.classList.remove('hidden');
+    } else {
+        powerupBar.classList.add('hidden');
+    }
+}
+
+function startGame() {
+    sfx.init();
+    state.mode = 'PLAYING';
+    state.score = 0;
+    state.lives = 3;
+    state.combo = 1;
+    state.comboTimer = 0;
+    state.rushTimer = 0;
+    state.pussLoafCount = 0;
+    state.bustedCount = 0;
+    state.groceriesCount = 0;
+    state.difficultyMult = 1;
+    state.spawnTimer = 0.4;
+    state.items = [];
+    state.waves = [];
+    state.particles = [];
+    state.popups = [];
+
+    state.cat.lane = 1;
+    state.cat.targetX = laneCenters[1];
+    state.cat.x = laneCenters[1];
+    state.cat.blastCooldown = 0;
+
+    document.getElementById('screen-start').classList.add('hidden');
+    document.getElementById('screen-gameover').classList.add('hidden');
+    updateHUD();
+}
+
+function triggerGameOver() {
+    state.mode = 'GAMEOVER';
+    const isNewBest = state.score > state.highScore;
+    if (isNewBest) {
+        state.highScore = state.score;
+        localStorage.setItem(STORAGE_KEY, String(state.highScore));
+    }
+
+    document.getElementById('over-score').textContent = state.score.toLocaleString();
+    document.getElementById('over-high-score').textContent = state.highScore.toLocaleString();
+    document.getElementById('start-high-score').textContent = state.highScore.toLocaleString();
+    document.getElementById('stat-pussloaf').textContent = state.pussLoafCount;
+    document.getElementById('stat-busted').textContent = state.bustedCount;
+    document.getElementById('stat-groceries').textContent = state.groceriesCount;
+    document.getElementById('over-quote').textContent = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+
+    const newBestEl = document.getElementById('over-new-best');
+    if (isNewBest && state.score > 0) {
+        newBestEl.classList.remove('hidden');
+    } else {
+        newBestEl.classList.add('hidden');
+    }
+
+    document.getElementById('screen-gameover').classList.remove('hidden');
+}
+
+// --- 7. MAIN SIMULATION & RENDER LOOP ---
+let lastTime = 0;
+
+function update(dt) {
+    // Smooth cart horizontal interpolation
+    state.cat.x += (state.cat.targetX - state.cat.x) * Math.min(1, dt * 16);
+    state.cat.bobPhase += dt * 11;
+
+    if (state.cat.eatTimer > 0) state.cat.eatTimer = Math.max(0, state.cat.eatTimer - dt);
+    if (state.cat.blastCooldown > 0) state.cat.blastCooldown = Math.max(0, state.cat.blastCooldown - dt);
+    if (state.screenShake > 0) state.screenShake = Math.max(0, state.screenShake - dt);
+
+    if (state.mode !== 'PLAYING') {
+        // Gentle idle floor scroll on title screen
+        state.floorScroll += 60 * dt;
+        return;
+    }
+
+    // Difficulty progression
+    state.difficultyMult = 1 + Math.min(1.45, state.score / 7500);
+    const rushSpeedBoost = state.rushTimer > 0 ? 1.25 : 1.0;
+    const currentSpeed = state.baseSpeed * state.difficultyMult * rushSpeedBoost;
+
+    state.floorScroll += currentSpeed * dt;
+
+    // Timers
+    if (state.comboTimer > 0) {
+        state.comboTimer -= dt;
+        if (state.comboTimer <= 0) {
+            state.combo = 1;
+            updateHUD();
+        }
+    }
+
+    if (state.rushTimer > 0) {
+        state.rushTimer -= dt;
+        if (state.rushTimer <= 0) {
+            state.rushTimer = 0;
+            updateHUD();
+        }
+    }
+
+    // Spawner
+    state.spawnTimer -= dt;
+    if (state.spawnTimer <= 0) {
+        spawnWaveOfItems();
+        state.spawnTimer = Math.max(0.42, 1.05 / state.difficultyMult);
+    }
+
+    // Update sonic podcast waves
+    for (let i = state.waves.length - 1; i >= 0; i--) {
+        const w = state.waves[i];
+        w.radius += 680 * dt;
+        w.alpha = Math.max(0, 1 - w.radius / w.maxRadius);
+
+        // Check if expanding wave hits any scammer item
+        for (let j = state.items.length - 1; j >= 0; j--) {
+            const it = state.items[j];
+            if (it.category === 'scam') {
+                const dist = Math.hypot(it.x - w.x, it.y - w.y);
+                if (dist <= w.radius + 26) {
+                    bustScammerItem(j);
+                }
+            }
+        }
+
+        if (w.radius >= w.maxRadius) {
+            state.waves.splice(i, 1);
+        }
+    }
+
+    // Update falling items & cart collisions
+    for (let i = state.items.length - 1; i >= 0; i--) {
+        const it = state.items[i];
+        it.y += currentSpeed * dt;
+        it.age += dt;
+        it.x = laneCenters[it.lane];
+
+        // Cart hitbox check
+        const dx = Math.abs(it.x - state.cat.x);
+        const dy = Math.abs(it.y - state.cat.y);
+
+        if (dx < 42 && dy < 44) {
+            state.items.splice(i, 1);
+
+            if (it.category === 'good') {
+                const rushMult = state.rushTimer > 0 ? 2 : 1;
+                const pts = it.points * state.combo * rushMult;
+                state.score += pts;
+                state.combo = Math.min(8, state.combo + 1);
+                state.comboTimer = 4.2;
+
+                if (it.id === 'pussloaf') {
+                    state.pussLoafCount++;
+                    state.rushTimer = 6.0; // Activate 62-Calorie PussLoaf Rush!
+                    sfx.playPussLoaf();
+                    spawnParticles(it.x, it.y, ['#38bdf8', '#fbbf24', '#ffffff'], 18);
+                    addPopup(it.x, it.y - 20, `🍞 PUSSLOAF RUSH! +${pts}`, '#38bdf8');
+                } else if (it.heals) {
+                    state.groceriesCount++;
+                    state.cat.eatTimer = 0.6;
+                    sfx.playGaribaldiHeal();
+                    spawnParticles(it.x, it.y, ['#f59e0b', '#fef08a', '#dc2626'], 16);
+                    if (state.lives < state.maxLives) {
+                        state.lives++;
+                        addPopup(it.x, it.y - 20, `🍪 +1 PAW LIFE! +${pts}`, '#4ade80');
+                    } else {
+                        addPopup(it.x, it.y - 20, `🍪 CRUNCHY! +${pts}`, '#fde047');
+                    }
+                } else {
+                    state.groceriesCount++;
+                    sfx.playGroceryPickup();
+                    spawnParticles(it.x, it.y, ['#4ade80', '#ffffff'], 10);
+                    addPopup(it.x, it.y - 16, `+${pts}`, '#4ade80');
+                }
+                updateHUD();
+            } else {
+                // Scammer item hit the cart unbusted!
+                sfx.playScamHit();
+                state.lives--;
+                state.combo = 1;
+                state.rushTimer = 0;
+                state.screenShake = 0.35;
+                spawnParticles(it.x, it.y, ['#ef4444', '#1e293b', '#f97316'], 20);
+                addPopup(it.x, it.y - 20, `💥 SCAMMED! -1 PAW`, '#f43f5e');
+                updateHUD();
+
+                if (state.lives <= 0) {
+                    triggerGameOver();
+                    return;
+                }
+            }
+            continue;
+        }
+
+        // Remove items off bottom of screen
+        if (it.y > height + 60) {
+            state.items.splice(i, 1);
+        }
+    }
+
+    // Update particles
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+        const p = state.particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 320 * dt;
+        p.life -= dt;
+        if (p.life <= 0) state.particles.splice(i, 1);
+    }
+
+    // Update floating text popups
+    for (let i = state.popups.length - 1; i >= 0; i--) {
+        const pop = state.popups[i];
+        pop.y -= 55 * dt;
+        pop.life -= dt * 1.15;
+        if (pop.life <= 0) state.popups.splice(i, 1);
+    }
+}
+
+function render() {
+    ctx.save();
+
+    // Screen shake offset
+    if (state.screenShake > 0) {
+        const mag = state.screenShake * 18;
+        ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
+    }
+
+    drawAisleBackground(ctx);
+
+    // Draw Rush aura behind Cat-Daddy if active
+    if (state.rushTimer > 0) {
+        const grad = ctx.createRadialGradient(state.cat.x, state.cat.y, 10, state.cat.x, state.cat.y, 95);
+        grad.addColorStop(0, 'rgba(56, 189, 248, 0.55)');
+        grad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(state.cat.x, state.cat.y, 95, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Draw Sonic Podcast Waves
+    for (const w of state.waves) {
+        ctx.save();
+        ctx.strokeStyle = `rgba(244, 63, 94, ${w.alpha})`;
+        ctx.lineWidth = 6 * w.alpha;
+        ctx.beginPath();
+        ctx.arc(w.x, w.y, w.radius, Math.PI * 1.1, Math.PI * 1.9);
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(56, 189, 248, ${w.alpha * 0.85})`;
+        ctx.lineWidth = 3 * w.alpha;
+        ctx.beginPath();
+        ctx.arc(w.x, w.y, w.radius * 0.82, Math.PI * 1.15, Math.PI * 1.85);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // Draw falling items
+    for (const it of state.items) {
+        drawItem(ctx, it);
+    }
+
+    // Draw Cat-Daddy & Shopping Cart
+    const bob = state.mode === 'PLAYING' ? Math.sin(state.cat.bobPhase) * 3 : 0;
+    const blastPulse = state.cat.blastCooldown > 0 ? state.cat.blastCooldown / 0.25 : 0;
+    drawCatDaddy(ctx, state.cat.x, state.cat.y, 1.05, bob, state.cat.eatTimer > 0, blastPulse);
+
+    // Draw particles
+    for (const p of state.particles) {
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Draw floating score/bust popups
+    for (const pop of state.popups) {
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, pop.life * 1.4);
+        ctx.font = '900 15px Outfit, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 4;
+        ctx.strokeText(pop.text, pop.x, pop.y);
+        ctx.fillStyle = pop.color;
+        ctx.fillText(pop.text, pop.x, pop.y);
+        ctx.restore();
+    }
+
+    ctx.restore();
+}
+
+function gameLoop(timestamp) {
+    if (!lastTime) lastTime = timestamp;
+    const dt = Math.min(0.05, (timestamp - lastTime) / 1000);
+    lastTime = timestamp;
+
+    update(dt);
+    render();
+    requestAnimationFrame(gameLoop);
+}
+
+// --- 8. INPUT LISTENERS (Keyboard, Touch, Pointer, Buttons) ---
+
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        moveLane(-1);
+    } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        moveLane(1);
+    } else if (e.key === ' ' || e.key === 'Enter') {
+        if (state.mode === 'PLAYING') {
+            e.preventDefault();
+            triggerMicBlast();
+        }
+    }
+});
+
+// Canvas tap / swipe / drag controls
+let touchStartX = null;
+let touchStartY = null;
+
+canvas.addEventListener('pointerdown', (e) => {
+    if (state.mode !== 'PLAYING') return;
+    const rect = canvas.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    touchStartX = px;
+    touchStartY = e.clientY - rect.top;
+
+    // Tapping a lane moves cart directly to that lane
+    if (px < width / 3) {
+        setLaneDirect(0);
+    } else if (px < (width * 2) / 3) {
+        setLaneDirect(1);
+    } else {
+        setLaneDirect(2);
+    }
+});
+
+canvas.addEventListener('pointermove', (e) => {
+    if (state.mode !== 'PLAYING' || touchStartX === null) return;
+    const rect = canvas.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    if (px < width / 3) setLaneDirect(0);
+    else if (px < (width * 2) / 3) setLaneDirect(1);
+    else setLaneDirect(2);
+});
+
+canvas.addEventListener('pointerup', (e) => {
+    if (state.mode === 'PLAYING' && touchStartY !== null) {
+        const rect = canvas.getBoundingClientRect();
+        const py = e.clientY - rect.top;
+        // Swipe up triggers podcast mic sonic blast!
+        if (touchStartY - py > 35) {
+            triggerMicBlast();
+        }
+    }
+    touchStartX = null;
+    touchStartY = null;
+});
+
+// UI Buttons
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-restart').addEventListener('click', startGame);
+document.getElementById('btn-left').addEventListener('click', () => moveLane(-1));
+document.getElementById('btn-right').addEventListener('click', () => moveLane(1));
+document.getElementById('btn-bust').addEventListener('click', triggerMicBlast);
+
+document.getElementById('btn-style-toggle').addEventListener('click', () => {
+    state.feltMode = !state.feltMode;
+    const label = document.getElementById('style-label');
+    label.textContent = state.feltMode ? 'Felt Mode' : 'Smooth Mode';
+    renderPreviewCharacter();
+});
+
+document.getElementById('btn-mute').addEventListener('click', (e) => {
+    const muted = sfx.toggleMute();
+    e.currentTarget.textContent = muted ? '🔇' : '🔊';
+});
+
+// --- 9. INITIALIZATION ON WINDOW LOAD ---
+window.onload = function () {
+    document.getElementById('start-high-score').textContent = state.highScore.toLocaleString();
+    resizeCanvas();
+    renderPreviewCharacter();
+    updateHUD();
+    requestAnimationFrame(gameLoop);
+};
+</script>
+</body>
+</html>
